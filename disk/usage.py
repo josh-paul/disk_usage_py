@@ -4,8 +4,9 @@ import operator
 import os
 import sys
 
-from dotted_dict import DottedDict
 from . import utils
+from dotted_dict import DottedDict
+from progress.spinner import Spinner
 
 
 units = utils.UnitConverter()
@@ -13,7 +14,6 @@ units = utils.UnitConverter()
 
 class DiskUsage(object):
     def __init__(self, target):
-        self._activity = ''
         self._dirs_holder = {}
         self.dir_count = 0
         self.dirs = []
@@ -150,25 +150,13 @@ class DiskUsage(object):
         if len(self.files) >= 21:
             self.files.pop()
 
-    def _remove_activity(self):
-        '''
-        Clean up stdout.
-        '''
-        sys.stdout.write('\r')
-        sys.stdout.write('')
-        sys.stdout.flush()
-        del self._activity
-
-    def _show_activity(self):
+    def _show_activity(self, spin):
         '''
         Every 5000 files, add a . to stdout to show program is still running.
         '''
-        if len(self._activity) == 5:
-            self._activity = ''
         if self.file_count % 5000 == 0:
-            self._activity = '{0}.'.format(self._activity)
+            spin.next()
             sys.stdout.write('\r')
-            sys.stdout.write(self._activity)
             sys.stdout.flush()
 
     def _sort_files_list(self):
@@ -192,16 +180,16 @@ class DiskUsage(object):
         Get file size and modified time for all files from the target directory and
         down.
         '''
+        spin = Spinner()
         for root, dirs, files in os.walk(target):
             dirs = self._filter_dirs(root, dirs)
             for name in files:
                 filename = os.path.join(root, name)
                 file_data = self._get_file_data(filename)
                 self.file_count += 1
-                self._show_activity()
+                self._show_activity(spin)
                 self._process_files(file_data)
                 self._add_up_dir(root, file_data)
-        self._remove_activity()
         self._sort_dirs()
 
 
