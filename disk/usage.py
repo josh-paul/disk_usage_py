@@ -22,9 +22,13 @@ class DiskUsage(object):
         self.file_count = 0
         self.files = []
         self.partition = DottedDict({})
+        self.stdout_report = []
         # Exec data gathering for the object
         self._get_partition_usage(target)
         self._walk_filesystem(target)
+        self._format_partition_output(target)
+        self._format_dirs_output()
+        self._format_files_output()
 
     def _add_up_dir(self, root, file_data):
         '''
@@ -45,6 +49,67 @@ class DiskUsage(object):
         if root is '/':
             dirs[:] = filter(lambda dir: dir not in self.exclude_root_dirs, dirs)
         return dirs
+
+    def calculate_percent(self, free, total):
+        '''
+        Calculate percentage of free resource.
+        '''
+        return round((float(free) / float(total) * 100), 2)
+
+    def _format_dirs_output(self):
+        '''
+        Add the dirs info to the output list.
+        '''
+        self.stdout_report.append('Total directory count of {0}'.format(self.dir_count))
+        self.stdout_report.append('The {0} largest directories are:\n'.format(len(self.dirs)))
+        for item in self.dirs:
+            self.stdout_report.append(
+                '{0}{1}'.format(units.to_human_readable(item.size).ljust(9), item.name)
+            )
+
+    def _format_files_output(self):
+        '''
+        Add files information to output list.
+        '''
+        self.stdout_report.append('\nTotal file count of {0}'.format(self.file_count))
+        self.stdout_report.append('The {0} largest files are:\n'.format(len(self.files)))
+        self.stdout_report.append('{0}{1}File'.format('Size'.ljust(9), 'Modified'.ljust(20)))
+
+        for item in self.files:
+            self.stdout_report.append(
+                '{0}{1} {2}'.format(
+                    units.to_human_readable(item.size).ljust(9),
+                    datetime.datetime.fromtimestamp(item.modified),
+                    item.name
+                )
+            )
+
+    def _format_partition_output(self, target):
+        '''
+        Build the partition information of the output in the output list.
+        '''
+        self.stdout_report.append(
+            '{0}% available disk space on {1}'.format(
+                self.calculate_percent(self.partition.free, self.partition.total), target
+            )
+        )
+        self.stdout_report.append(
+            'Total: {0}\tUsed: {1}\tFree: {2}\n'.format(
+                units.to_human_readable(self.partition.total),
+                units.to_human_readable(self.partition.used),
+                units.to_human_readable(self.partition.free)
+            )
+        )
+        self.stdout_report.append(
+            '{0}% of Total Inodes are free.'.format(
+                self.calculate_percent(self.partition.inodes_free, self.partition.inodes_total)
+            )
+        )
+        self.stdout_report.append(
+            'Total Inodes: {0}\tUsed: {1}\tFree: {2}\n'.format(
+                self.partition.inodes_total, self.partition.inodes_used, self.partition.inodes_free
+            )
+        )
 
     def _get_file_data(self, filename):
         '''
@@ -159,85 +224,7 @@ def arguments():
     return args
 
 
-def calculate_percent(free, total):
-    '''
-    Calculate percentage of free resource.
-    '''
-    return round((float(free) / float(total) * 100), 2)
-
-
-def format_dirs_output(output, disk):
-    '''
-    Add the dirs info to the output list.
-    '''
-    output.append('Total directory count of {0}'.format(disk.dir_count))
-    output.append('The {0} largest directories are:\n'.format(len(disk.dirs)))
-    for item in disk.dirs:
-        output.append('{0}{1}'.format(units.to_human_readable(item.size).ljust(9), item.name))
-    return output
-
-
-def format_files_output(output, disk):
-    '''
-    Add files information to output list.
-    '''
-    output.append('\nTotal file count of {0}'.format(disk.file_count))
-    output.append('The {0} largest files are:\n'.format(len(disk.files)))
-    output.append('{0}{1}File'.format('Size'.ljust(9), 'Modified'.ljust(20)))
-
-    for item in disk.files:
-        output.append(
-            '{0}{1} {2}'.format(
-                units.to_human_readable(item.size).ljust(9),
-                datetime.datetime.fromtimestamp(item.modified),
-                item.name
-            )
-        )
-    return output
-
-
-def format_partition_output(output, disk, target):
-    '''
-    Build the partition information of the output in the output list.
-    '''
-    output.append(
-        '{0}% available disk space on {1}'.format(
-            calculate_percent(disk.partition.free, disk.partition.total), target
-        )
-    )
-    output.append(
-        'Total: {0}\tUsed: {1}\tFree: {2}\n'.format(
-            units.to_human_readable(disk.partition.total),
-            units.to_human_readable(disk.partition.used),
-            units.to_human_readable(disk.partition.free)
-        )
-    )
-    output.append(
-        '{0}% of Total Inodes are free.'.format(
-            calculate_percent(disk.partition.inodes_free, disk.partition.inodes_total)
-        )
-    )
-    output.append(
-        'Total Inodes: {0}\tUsed: {1}\tFree: {2}\n'.format(
-            disk.partition.inodes_total, disk.partition.inodes_used, disk.partition.inodes_free
-        )
-    )
-    return output
-
-
-def format_output(disk, target):
-    '''
-    Generate the output in list form.
-    '''
-    output = []
-    output = format_partition_output(output, disk, target)
-    output = format_dirs_output(output, disk)
-    output = format_files_output(output, disk)
-    return output
-
-
 def cli():
     args = arguments()
     disk = DiskUsage(args.target)
-    output = format_output(disk, args.target)
-    print('\n'.join(output))
+    print('\n'.join(disk.stdout_report))
