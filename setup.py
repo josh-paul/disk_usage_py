@@ -8,7 +8,7 @@ with open('README.rst') as f:
 
 setup(
     name='disk_usage',
-    version='0.0.1',
+    version='0.0.2',
     description=('Utility to easily identify disk usage culprits.'),
     long_description=desc,
     url='https://github.com/josh-paul/disk_usage',
@@ -30,7 +30,7 @@ setup(
 
     keywords='disk usage disk_usage',
     packages=find_packages(exclude=['contrib', 'docs', 'test*']),
-    install_requires=['dotted-dict'],
+    install_requires=['dotted-dict', 'progress'],
     extras_require={},
     package_data={},
     data_files=[],
